@@ -1,9 +1,13 @@
 #!/usr/bin/python3
-import re
+import re, argparse
 
-INPUT = "common.sh"
-INPUT_README = "README-nodoc.md"
-OUTPUT_README = "README.md"
+parser = argparse.ArgumentParser(description="generated markdown documentation from shell script comments")
+parser.add_argument("INPUT_FILE", help="Input script to parse")
+parser.add_argument("-hl", "--header-level", default=2, help="How indented is wherever you are putting this? [default: 2 (##)]")
+args = parser.parse_args()
+
+INPUT = args.INPUT_FILE
+H_LEVEL = args.header_level*"#"
 
 SYNTAX = "sh"
 
@@ -57,21 +61,21 @@ def code_block(code):
 	return "```%s\n%s\n```" % (SYNTAX, "\n".join(code))
 
 def process_block(block):
-	body = "### `%s`" % (block["name"])+"\n\n"
+	body = "%s `%s`" % (H_LEVEL, block["name"])+"\n\n"
 	body += "\n".join(block["description"])+"\n\n"
 	# body += "\n".join(["\t%s" % (l) for l in block["usage"]])+"\n\n"
 	body += code_block(block["usage"])+"\n\n"
-	body += "#### source\n\n" 
+	body += "%s# source\n\n" % (H_LEVEL) 
 	# body += "\n".join(["\t%s" % (l) for l in block["source"]])
 	body += code_block(block["source"])
 	if len(block["requires"]) > 0:
-		body += "\n\n#### requires\n\n"
+		body += "\n\n%s# requires\n\n" % (H_LEVEL)
 		body += "\n".join(["* [%s](#%s)" % (r, r) for r in block["requires"]])
 	return body
 
 def generate_toc(blocks):
 	functions = [b["name"] for b in blocks]
-	toc_body = "### table of contents\n\n"
+	toc_body = "%s table of contents\n\n" % (H_LEVEL)
 	toc_body += "\n".join(["* [`%s`](#%s)" % (f, f) for f in functions])
 	return toc_body
 
@@ -99,6 +103,4 @@ for block in function_blocks:
 
 markdown_output = "\n\n".join(markdown_output)
 
-with open(INPUT_README, "r") as plain_r:
-	with open(OUTPUT_README, "w") as new_r:
-		new_r.write("\n\n".join([plain_r.read(), markdown_output]))
+print(markdown_output)
