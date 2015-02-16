@@ -5,6 +5,7 @@ parser = argparse.ArgumentParser(description="generate markdown documentation fr
 parser.add_argument("-i", "--input", nargs="?", type=argparse.FileType("r"), default=sys.stdin, help="Input script to parse")
 parser.add_argument("-o", "--output", nargs="?", type=argparse.FileType("w"), default=sys.stdout, help="Where to output the Markdown")
 parser.add_argument("-hl", "--header-level", default=2, help="How indented is wherever you are putting this? [default: 2 (##)]")
+parser.add_argument("-nt", "--no-toc", action="store_true", default=False, help="Don't generate a table of contents.")
 args = parser.parse_args()
 
 INPUT = args.input
@@ -102,7 +103,8 @@ for S_LNUM in range(0, len(SOURCE)):
 		})
 
 markdown_output = []
-markdown_output.append(generate_toc(function_blocks))
+if not args.no_toc:
+	markdown_output.append(generate_toc(function_blocks))
 for block in function_blocks:
 	markdown_output.append(process_block(block))
 
