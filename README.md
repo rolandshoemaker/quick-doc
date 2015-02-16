@@ -23,6 +23,7 @@ yourself or you can specify input and/or output files using the `-i` and `-o` ar
 	  -hl HEADER_LEVEL, --header-level HEADER_LEVEL
 	                        How indented is wherever you are putting this?
 	                        [default: 2 (##)]
+	  -nt, --no-toc         Don't generate a table of contents.
 
 ## Comment format
 
