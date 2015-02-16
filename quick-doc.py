@@ -12,22 +12,6 @@ REQUIRE_PRE = "# requires: "
 
 CURRENT_LINE = 0
 
-def blank_line(line_num):
-	return SOURCE[line_num].strip() == ""
-
-def preamble_line(line_num):
-	return SOURCE[line_num].startswith("# ")
-
-def get_preamble(start_line):
-	preamble = []
-	for line_num in range(start_line, 0, -1):
-		if preamble_line(line_num):
-			preamble.append(SOURCE[line_num])
-		if blank_line(line_num):
-			break
-	preamble.reverse()
-	return preamble	
-
 def dissemble_preamble(preamble):
 	description = []
 	usage = []
@@ -41,10 +25,57 @@ def dissemble_preamble(preamble):
 			requirements += p[len(REQUIRE_PRE):].split(" ")
 	return description, usage, requirements
 
-def find_func_end(start_line):
-	for line_num in range(start_line, len(SOURCE)-1):
-		if re.match(FUNC_END, SOURCE[line_num]):
-			return line_num+1
+class ShellDoc():
+	def __init__(self, source, pos=0):
+		self.ast = []
+		self.source = source
+		self.pos = pos
+		self.end = len(self.source)
+
+	def blank_line(self):
+		return self.source[self.pos].strip() == ""
+
+	def preamble_line(self):
+		return self.source[self.pos].startswith("# ")
+
+	def get_preamble(self):
+		preamble = []
+		start_pos = self.pos
+		while True:
+			if self.preamble_line():
+				preamble.append(self.source[self.pos])
+			if self.blank_line():
+				break
+			self.pos -= 1
+		self.pos = start_pos
+		preamble.reverse()
+		return dissemble_preamble(preamble)
+
+	def find_func_end(self):
+		for line_num in range(self.pos, self.end):
+			if re.match(FUNC_END, self.source[line_num]):
+				return line_num+1
+
+	def process_line(self):
+		function = re.search(FUNC_START, self.source[self.pos])
+		if function:
+			desc, usage, requires = self.get_preamble()
+			func_end = self.find_func_end()
+			self.ast.append({
+				"name": function.group(1),
+				"description": desc,
+				"usage": usage,
+				"requires": requires,
+				"source": self.source[self.pos:func_end]
+			})
+			self.pos = func_end
+		else:
+			self.pos += 1
+
+	def parse(self):
+		while self.pos < self.end:
+			self.process_line()
+		return self.ast
 
 def code_block(code, lang=SYNTAX):
 	return "```%s\n%s\n```" % (lang, "\n".join(code))
@@ -72,6 +103,14 @@ def generate_toc(blocks):
 	toc_body += "\n".join(["* [`%s`](#%s)" % (f, f) for f in functions])
 	return toc_body
 
+def render(blocks):
+	output = []
+	if not args.no_toc:
+		output.append(generate_toc(blocks))
+	for block in blocks:
+		output.append(process_block(block))
+	return "\n\n".join(output)
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="generate markdown documentation from quick shell script comments")
 	parser.add_argument("-i", "--input", nargs="?", type=argparse.FileType("r"), default=sys.stdin, help="Input script to parse")
@@ -85,30 +124,10 @@ if __name__ == "__main__":
 
 	H_LEVEL = args.header_level*"#"
 
-	function_blocks = []
+	sh_parser = ShellDoc(SOURCE)
 
-	for S_LNUM in range(0, len(SOURCE)):
-		function = re.search(FUNC_START, SOURCE[S_LNUM])
-		if function:
-			func_name = function.groups()[0]
-			preamble = get_preamble(S_LNUM)
-			desc, usage, requires = dissemble_preamble(preamble)
-			func_end = find_func_end(S_LNUM)
-			function_blocks.append({
-				"name": func_name,
-				"description": desc,
-				"usage": usage,
-				"requires": requires,
-				"source": SOURCE[S_LNUM:func_end]
-			})
+	function_blocks = sh_parser.parse()
 
-	markdown_output = []
-	if not args.no_toc:
-		markdown_output.append(generate_toc(function_blocks))
-	for block in function_blocks:
-		markdown_output.append(process_block(block))
-
-	markdown_output = "\n\n".join(markdown_output)
-
+	markdown_output = render(function_blocks)
+	
 	OUTPUT.write(markdown_output)
-	# print(markdown_output)
