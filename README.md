@@ -45,6 +45,10 @@ This script renders out to the following markdown
 this is the description, any *markdown* can be put here since we are just
 passing it through as markdown!
 
+```sh
+function "argument" [optional argument]
+```
+
 #### source
 
 ```sh
