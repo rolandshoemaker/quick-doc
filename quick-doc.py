@@ -1,17 +1,6 @@
 #!/usr/bin/python3
 import sys, re, argparse
 
-parser = argparse.ArgumentParser(description="generate markdown documentation from quick shell script comments")
-parser.add_argument("-i", "--input", nargs="?", type=argparse.FileType("r"), default=sys.stdin, help="Input script to parse")
-parser.add_argument("-o", "--output", nargs="?", type=argparse.FileType("w"), default=sys.stdout, help="Where to output the Markdown")
-parser.add_argument("-hl", "--header-level", default=2, help="How indented is wherever you are putting this? [default: 2 (##)]")
-parser.add_argument("-nt", "--no-toc", action="store_true", default=False, help="Don't generate a table of contents.")
-args = parser.parse_args()
-
-INPUT = args.input
-OUTPUT = args.output
-H_LEVEL = args.header_level*"#"
-
 SYNTAX = "sh"
 
 FUNC_START = "([a-zA-Z_]+)\(\) {"
@@ -22,8 +11,6 @@ USAGE_PRE = "# usage: "
 REQUIRE_PRE = "# requires: "
 
 CURRENT_LINE = 0
-
-SOURCE = [l.strip("\n") for l in INPUT.readlines()]
 
 def blank_line(line_num):
 	return SOURCE[line_num].strip() == ""
@@ -85,29 +72,43 @@ def generate_toc(blocks):
 	toc_body += "\n".join(["* [`%s`](#%s)" % (f, f) for f in functions])
 	return toc_body
 
-function_blocks = []
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description="generate markdown documentation from quick shell script comments")
+	parser.add_argument("-i", "--input", nargs="?", type=argparse.FileType("r"), default=sys.stdin, help="Input script to parse")
+	parser.add_argument("-o", "--output", nargs="?", type=argparse.FileType("w"), default=sys.stdout, help="Where to output the Markdown")
+	parser.add_argument("-hl", "--header-level", default=2, help="How indented is wherever you are putting this? [default: 2 (##)]")
+	parser.add_argument("-nt", "--no-toc", action="store_true", default=False, help="Don't generate a table of contents")
+	args = parser.parse_args()
 
-for S_LNUM in range(0, len(SOURCE)):
-	function = re.search(FUNC_START, SOURCE[S_LNUM])
-	if function:
-		func_name = function.groups()[0]
-		preamble = get_preamble(S_LNUM)
-		desc, usage, requires = dissemble_preamble(preamble)
-		func_end = find_func_end(S_LNUM)
-		function_blocks.append({
-			"name": func_name,
-			"description": desc,
-			"usage": usage,
-			"requires": requires,
-			"source": SOURCE[S_LNUM:func_end]
-		})
+	OUTPUT = args.output
+	SOURCE = [l.strip("\n") for l in args.input]
 
-markdown_output = []
-if not args.no_toc:
-	markdown_output.append(generate_toc(function_blocks))
-for block in function_blocks:
-	markdown_output.append(process_block(block))
+	H_LEVEL = args.header_level*"#"
 
-markdown_output = "\n\n".join(markdown_output)
+	function_blocks = []
 
-OUTPUT.write(markdown_output)
+	for S_LNUM in range(0, len(SOURCE)):
+		function = re.search(FUNC_START, SOURCE[S_LNUM])
+		if function:
+			func_name = function.groups()[0]
+			preamble = get_preamble(S_LNUM)
+			desc, usage, requires = dissemble_preamble(preamble)
+			func_end = find_func_end(S_LNUM)
+			function_blocks.append({
+				"name": func_name,
+				"description": desc,
+				"usage": usage,
+				"requires": requires,
+				"source": SOURCE[S_LNUM:func_end]
+			})
+
+	markdown_output = []
+	if not args.no_toc:
+		markdown_output.append(generate_toc(function_blocks))
+	for block in function_blocks:
+		markdown_output.append(process_block(block))
+
+	markdown_output = "\n\n".join(markdown_output)
+
+	OUTPUT.write(markdown_output)
+	# print(markdown_output)
