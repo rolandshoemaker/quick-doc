@@ -30,7 +30,7 @@ class ShellDoc():
 		self.ast = []
 		self.source = source
 		self.pos = pos
-		self.end = len(self.source)
+		self.end = len(self.source)-1
 
 	def blank_line(self):
 		return self.source[self.pos].strip() == ""
@@ -52,9 +52,13 @@ class ShellDoc():
 		return dissemble_preamble(preamble)
 
 	def find_func_end(self):
-		for line_num in range(self.pos, self.end):
-			if re.match(FUNC_END, self.source[line_num]):
-				return line_num+1
+		start_pos = self.pos
+		while True:
+			if re.match(FUNC_END, self.source[self.pos]):
+				end_pos = self.pos+1
+				self.pos = start_pos
+				return end_pos
+			self.pos += 1
 
 	def process_line(self):
 		function = re.search(FUNC_START, self.source[self.pos])
@@ -80,38 +84,34 @@ class ShellDoc():
 def code_block(code, lang=SYNTAX):
 	return "```%s\n%s\n```" % (lang, "\n".join(code))
 
-def process_block(block):
-	body = "%s `%s`" % (H_LEVEL, block["name"])+"\n\n"
-
-	if len(block["description"]) > 0:
-		body += "\n".join(block["description"])+"\n\n"
-
-	if len(block["usage"]) > 0:
-		body += code_block(block["usage"])+"\n\n"
-
-	body += "%s# Source\n\n" % (H_LEVEL) 
-	body += code_block(block["source"])
-
-	if len(block["requires"]) > 0:
-		body += "\n\n%s# Requires\n\n" % (H_LEVEL)
-		body += "\n".join(["* [`%s`](#%s)" % (r, r) for r in block["requires"]])
-	return body
-
-def generate_toc(blocks):
+def generate_toc(blocks, indent):
 	functions = [b["name"] for b in blocks]
-	toc_body = "%s Table of Contents\n\n" % (H_LEVEL)
+	toc_body = "%s Table of Contents\n\n" % (indent)
 	toc_body += "\n".join(["* [`%s`](#%s)" % (f, f) for f in functions])
 	return toc_body
 
-def render(blocks):
+def render_block(block, indent):
+	body = "%s `%s`" % (indent, block["name"])+"\n\n"
+	if len(block["description"]) > 0:
+		body += "\n".join(block["description"])+"\n\n"
+	if len(block["usage"]) > 0:
+		body += code_block(block["usage"])+"\n\n"
+	body += "%s# Source\n\n" % (indent) 
+	body += code_block(block["source"])
+	if len(block["requires"]) > 0:
+		body += "\n\n%s# Requires\n\n" % (indent)
+		body += "\n".join(["* [`%s`](#%s)" % (r, r) for r in block["requires"]])
+	return body
+
+def render(blocks, indent, no_toc):
 	output = []
-	if not args.no_toc:
-		output.append(generate_toc(blocks))
+	if not no_toc:
+		output.append(generate_toc(blocks, indent))
 	for block in blocks:
-		output.append(process_block(block))
+		output.append(render_block(block, indent))
 	return "\n\n".join(output)
 
-if __name__ == "__main__":
+def run():
 	parser = argparse.ArgumentParser(description="generate markdown documentation from quick shell script comments")
 	parser.add_argument("-i", "--input", nargs="?", type=argparse.FileType("r"), default=sys.stdin, help="Input script to parse")
 	parser.add_argument("-o", "--output", nargs="?", type=argparse.FileType("w"), default=sys.stdout, help="Where to output the Markdown")
@@ -119,15 +119,14 @@ if __name__ == "__main__":
 	parser.add_argument("-nt", "--no-toc", action="store_true", default=False, help="Don't generate a table of contents")
 	args = parser.parse_args()
 
-	OUTPUT = args.output
-	SOURCE = [l.strip("\n") for l in args.input]
+	source = [l.strip("\n") for l in args.input]
 
-	H_LEVEL = args.header_level*"#"
+	h_level = args.header_level*"#"
 
-	sh_parser = ShellDoc(SOURCE)
-
-	function_blocks = sh_parser.parse()
-
-	markdown_output = render(function_blocks)
+	function_blocks = ShellDoc(source).parse()
+	markdown_output = render(function_blocks, h_level, args.no_toc)
 	
-	OUTPUT.write(markdown_output)
+	args.output.write(markdown_output)
+
+if __name__ == "__main__":
+	run()
