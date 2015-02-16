@@ -1,12 +1,14 @@
 #!/usr/bin/python3
-import re, argparse
+import sys, re, argparse
 
-parser = argparse.ArgumentParser(description="generated markdown documentation from shell script comments")
-parser.add_argument("INPUT_FILE", help="Input script to parse")
+parser = argparse.ArgumentParser(description="generate markdown documentation from quick shell script comments")
+parser.add_argument("-i", "--input", nargs="?", type=argparse.FileType("r"), default=sys.stdin, help="Input script to parse")
+parser.add_argument("-o", "--output", nargs="?", type=argparse.FileType("w"), default=sys.stdout, help="Where to output the Markdown")
 parser.add_argument("-hl", "--header-level", default=2, help="How indented is wherever you are putting this? [default: 2 (##)]")
 args = parser.parse_args()
 
-INPUT = args.INPUT_FILE
+INPUT = args.input
+OUTPUT = args.output
 H_LEVEL = args.header_level*"#"
 
 SYNTAX = "sh"
@@ -20,8 +22,7 @@ REQUIRE_PRE = "# requires: "
 
 CURRENT_LINE = 0
 
-with open(INPUT, "r") as f:
-	SOURCE = [l.strip("\n") for l in f.readlines()]
+SOURCE = [l.strip("\n") for l in INPUT.readlines()]
 
 def blank_line(line_num):
 	return SOURCE[line_num].strip() == ""
@@ -57,25 +58,29 @@ def find_func_end(start_line):
 		if re.match(FUNC_END, SOURCE[line_num]):
 			return line_num+1
 
-def code_block(code):
-	return "```%s\n%s\n```" % (SYNTAX, "\n".join(code))
+def code_block(code, lang=SYNTAX):
+	return "```%s\n%s\n```" % (lang, "\n".join(code))
 
 def process_block(block):
 	body = "%s `%s`" % (H_LEVEL, block["name"])+"\n\n"
-	body += "\n".join(block["description"])+"\n\n"
-	# body += "\n".join(["\t%s" % (l) for l in block["usage"]])+"\n\n"
-	body += code_block(block["usage"])+"\n\n"
-	body += "%s# source\n\n" % (H_LEVEL) 
-	# body += "\n".join(["\t%s" % (l) for l in block["source"]])
+
+	if len(block["description"]) > 0:
+		body += "\n".join(block["description"])+"\n\n"
+
+	if len(block["usage"]) > 0:
+		body += code_block(block["usage"])+"\n\n"
+
+	body += "%s# Source\n\n" % (H_LEVEL) 
 	body += code_block(block["source"])
+
 	if len(block["requires"]) > 0:
-		body += "\n\n%s# requires\n\n" % (H_LEVEL)
-		body += "\n".join(["* [%s](#%s)" % (r, r) for r in block["requires"]])
+		body += "\n\n%s# Requires\n\n" % (H_LEVEL)
+		body += "\n".join(["* [`%s`](#%s)" % (r, r) for r in block["requires"]])
 	return body
 
 def generate_toc(blocks):
 	functions = [b["name"] for b in blocks]
-	toc_body = "%s table of contents\n\n" % (H_LEVEL)
+	toc_body = "%s Table of Contents\n\n" % (H_LEVEL)
 	toc_body += "\n".join(["* [`%s`](#%s)" % (f, f) for f in functions])
 	return toc_body
 
@@ -103,4 +108,4 @@ for block in function_blocks:
 
 markdown_output = "\n\n".join(markdown_output)
 
-print(markdown_output)
+OUTPUT.write(markdown_output)

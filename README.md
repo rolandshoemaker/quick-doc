@@ -4,6 +4,26 @@
 writen in *Python*. Currently it only supports `sh` but in the future I might
 extend it into different languages if I need to quickly document something else...
 
+## Usage
+
+You can either pipe a file to quick-doc.py and then redirect the output somewhere
+yourself or you can specify input and/or output files using the `-i` and `-o` arguments.
+
+	$ ./quick-doc.py -h
+	usage: quick-doc.py [-h] [-i [INPUT]] [-o [OUTPUT]] [-hl HEADER_LEVEL]
+	
+	generate markdown documentation from quick shell script comments
+	
+	optional arguments:
+	  -h, --help            show this help message and exit
+	  -i [INPUT], --input [INPUT]
+	                        Input script to parse
+	  -o [OUTPUT], --output [OUTPUT]
+	                        Where to output the Markdown
+	  -hl HEADER_LEVEL, --header-level HEADER_LEVEL
+	                        How indented is wherever you are putting this?
+	                        [default: 2 (##)]
+
 ## Comment format
 
 ```sh
